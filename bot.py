@@ -2,22 +2,15 @@ import os
 import logging
 from datetime import datetime, timedelta
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    MessageHandler,
-    filters,
-    ContextTypes,
-    CommandHandler,
-)
+from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes, CommandHandler
 from dateutil import parser as dateparser
 
 logging.basicConfig(level=logging.INFO)
 
-# Берём токен и ID из переменных окружения
-TOKEN = os.getenv("BOT_TOKEN")
-TELEGRAM_USER_ID = int(os.getenv("TELEGRAM_USER_ID"))
-
-PORT = int(os.environ.get("PORT", 10000))  # Render даёт порт
+# Настройки
+TELEGRAM_USER_ID = int(os.getenv("TELEGRAM_USER_ID"))  # Твой Telegram ID
+TOKEN = os.getenv("BOT_TOKEN")  # Токен бота
+PORT = int(os.environ.get("PORT", 10000))  # Render сам даст порт
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -30,41 +23,37 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.voice:
         return
 
-    text = update.message.caption or update.message.text or update.message.voice.transcription
+    text = update.message.caption or update.message.text or getattr(update.message.voice, "transcription", None)
     if not text:
         await update.message.reply_text("Я не смог распознать текст. Попробуй ещё раз.")
         return
 
     logging.info(f"Распознанный текст: {text}")
 
-    # Парсим дату/время
+    # Определяем время напоминания
     reminder_time = None
     try:
         reminder_time = dateparser.parse(text, fuzzy=True, dayfirst=True)
     except:
         pass
-
     if not reminder_time:
         reminder_time = datetime.now() + timedelta(minutes=1)
 
-    # Извлекаем текст напоминания
+    # Текст напоминания
     try:
         extracted_date = dateparser.parse(text, fuzzy=True)
         reminder_text = text.replace(str(extracted_date.date()), "").replace(str(extracted_date.time()), "").strip()
     except:
         reminder_text = text.strip()
-
     if not reminder_text:
         reminder_text = text
 
-    # Подтверждение пользователю
+    # Подтверждение
     await update.message.reply_text(
-        f"Напоминание создано!\n\n"
-        f"📝 Текст: {reminder_text}\n"
-        f"⏰ Время: {reminder_time.strftime('%d.%m.%Y %H:%M')}"
+        f"Напоминание создано!\n\n📝 Текст: {reminder_text}\n⏰ Время: {reminder_time.strftime('%d.%m.%Y %H:%M')}"
     )
 
-    # Ставим задачу в очередь
+    # Запланировать напоминание
     context.job_queue.run_once(
         send_reminder,
         reminder_time - datetime.now(),
@@ -72,7 +61,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=TELEGRAM_USER_ID
     )
 
-# Отправка напоминания
+# Функция отправки напоминания
 async def send_reminder(context: ContextTypes.DEFAULT_TYPE):
     data = context.job.data
     await context.bot.send_message(
@@ -80,14 +69,14 @@ async def send_reminder(context: ContextTypes.DEFAULT_TYPE):
         text=f"🔔 Напоминание:\n{data['text']}"
     )
 
+# Основной запуск
 def main():
-    application = ApplicationBuilder().token(TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.VOICE, handle_voice))
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
     # Webhook для Render
-    application.run_webhook(
+    app.run_webhook(
         listen="0.0.0.0",
         port=PORT,
         webhook_url=f"https://my-telegram-bot-viie.onrender.com/{TOKEN}"
