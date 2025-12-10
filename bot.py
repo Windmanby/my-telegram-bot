@@ -7,10 +7,10 @@ from dateutil import parser as dateparser
 
 logging.basicConfig(level=logging.INFO)
 
-TELEGRAM_USER_ID = int(os.getenv("TELEGRAM_USER_ID"))  # Ваш ID
+TELEGRAM_USER_ID = int(os.getenv("TELEGRAM_USER_ID"))
 TOKEN = os.getenv("BOT_TOKEN")
+PORT = int(os.environ.get("PORT", 5000))
 
-# Обработчик ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Произошла ошибка: {context.error}")
 
@@ -65,15 +65,18 @@ async def send_reminder(context: ContextTypes.DEFAULT_TYPE):
     )
 
 def main():
-    application = ApplicationBuilder().token(TOKEN).build()
+    app = ApplicationBuilder().token(TOKEN).build()
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.VOICE, handle_voice))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
+    app.add_error_handler(error_handler)
 
-    # Добавляем обработчик ошибок
-    application.add_error_handler(error_handler)
-
-    application.run_polling()
+    # ВАЖНО: используем webhook вместо polling
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=f"https://<YOUR-APP-NAME>.onrender.com/{TOKEN}"
+    )
 
 if __name__ == "__main__":
     main()
