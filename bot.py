@@ -11,14 +11,17 @@ TELEGRAM_USER_ID = int(os.getenv("TELEGRAM_USER_ID"))
 TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.environ.get("PORT", 5000))
 
+# Обработчик ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Произошла ошибка: {context.error}")
 
+# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привет! Отправь мне голосовое, и я создам напоминание."
     )
 
+# Обработка голосового
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.voice:
         return
@@ -57,6 +60,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=TELEGRAM_USER_ID
     )
 
+# Отправка напоминания
 async def send_reminder(context: ContextTypes.DEFAULT_TYPE):
     data = context.job.data
     await context.bot.send_message(
@@ -71,11 +75,11 @@ def main():
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_error_handler(error_handler)
 
-    # ВАЖНО: используем webhook вместо polling
+    # Webhook для Render
     app.run_webhook(
         listen="0.0.0.0",
         port=PORT,
-        webhook_url=f"https://<YOUR-APP-NAME>.onrender.com/{TOKEN}"
+        webhook_url=f"https://my-telegram-bot.onrender.com/{TOKEN}"
     )
 
 if __name__ == "__main__":
