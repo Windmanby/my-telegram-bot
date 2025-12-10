@@ -96,3 +96,11 @@ print(f"Bot is running on port {PORT}")
 # Держим процесс живым, чтобы Render не закрыл сервис
 while True:
     time.sleep(60)
+import os
+import time
+
+PORT = int(os.environ.get("PORT", 5000))
+print(f"Bot is running on port {PORT}")
+
+while True:
+    time.sleep(60)
