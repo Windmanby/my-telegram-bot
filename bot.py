@@ -87,3 +87,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+import os
+import time
+
+PORT = int(os.environ.get("PORT", 5000))  # Render автоматически даёт порт
+print(f"Bot is running on port {PORT}")
+
+# Держим процесс живым, чтобы Render не закрыл сервис
+while True:
+    time.sleep(60)
