@@ -1,71 +1,56 @@
 import os
 import logging
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-import asyncio
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters
+)
 
-# Логирование
+# ===== Настройка логирования =====
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 
-# Переменные окружения
-TOKEN = os.environ.get("BOT_TOKEN")  # Ваш токен
+# ===== Переменные окружения =====
+TOKEN = os.environ.get("BOT_TOKEN")  # токен бота
 PORT = int(os.environ.get("PORT", 10000))
-APP_URL = os.environ.get("APP_URL", "https://my-telegram-bot-viie.onrender.com")  # Ваш URL на Render
+APP_URL = os.environ.get("APP_URL", "https://my-telegram-bot-viie.onrender.com")  # URL Render
 
-# Простая база напоминаний
-reminders = []
-
-# Команда /start
+# ===== Обработчики =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привет! Бот работает ✅")
 
-# Текстовые сообщения
-async def text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    await update.message.reply_text(f"Вы написали: {text}")
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"Вы написали: {update.message.text}")
 
-# Голосовые сообщения
-async def voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    voice = update.message.voice
-    if voice:
-        file = await context.bot.get_file(voice.file_id)
-        path = f"voice_{voice.file_id}.ogg"
-        await file.download_to_drive(path)
-        await update.message.reply_text("Голосовое получено ✅")
+# Пример обработки голосовых сообщений
+async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Голосовое сообщение получено 🎤")
 
-# Цикл напоминаний
-async def reminder_loop(application):
-    while True:
-        now = asyncio.get_event_loop().time()
-        for reminder in reminders.copy():
-            if reminder[0] <= now:
-                chat_id = reminder[1]
-                message = reminder[2]
-                try:
-                    await application.bot.send_message(chat_id, f"⏰ Напоминание: {message}")
-                except Exception as e:
-                    logging.error(f"Ошибка при отправке напоминания: {e}")
-                reminders.remove(reminder)
-        await asyncio.sleep(1)
+# Пример отложенного напоминания
+async def reminder(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.args:
+        text = " ".join(context.args)
+        await update.message.reply_text(f"Напоминание установлено: {text}")
+    else:
+        await update.message.reply_text("Используй /reminder текст_напоминания")
 
-# Создание приложения
+# ===== Создаём приложение =====
 app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), text_message))
-app.add_handler(MessageHandler(filters.VOICE, voice_message))
 
-# Запуск webhook на Render
-async def main():
-    asyncio.create_task(reminder_loop(app))
-    await app.run_webhook(
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("reminder", reminder))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+app.add_handler(MessageHandler(filters.VOICE, voice_handler))
+
+# ===== Запуск webhook =====
+if __name__ == "__main__":
+    app.run_webhook(
         listen="0.0.0.0",
         port=PORT,
-        webhook_url=f"{APP_URL}/{TOKEN}"  # только webhook_url
+        webhook_url=f"{APP_URL}/{TOKEN}"
     )
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
