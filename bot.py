@@ -2,7 +2,6 @@ import os
 import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-import httpx
 import asyncio
 
 # Логирование
@@ -12,46 +11,32 @@ logging.basicConfig(
 )
 
 # Переменные окружения
-TOKEN = os.environ.get("BOT_TOKEN")
-PORT = int(os.environ.get("PORT", 10000))  # Render обычно задаёт PORT
-APP_URL = os.environ.get("APP_URL", f"https://my-telegram-bot-viie.onrender.com")  # твой URL на Render
+TOKEN = os.environ.get("BOT_TOKEN")  # Ваш токен
+PORT = int(os.environ.get("PORT", 10000))
+APP_URL = os.environ.get("APP_URL", "https://my-telegram-bot-viie.onrender.com")  # Ваш URL на Render
 
-# Простая база отложенных сообщений
+# Простая база напоминаний
 reminders = []
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Я бот, готов слушать голосовые и текстовые сообщения.")
+    await update.message.reply_text("Привет! Бот работает ✅")
 
 # Текстовые сообщения
 async def text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    if text.lower().startswith("напомни"):
-        # Простейший синтаксис: "Напомни через 10 секунд проверить почту"
-        try:
-            parts = text.split()
-            seconds = int(parts[2])
-            message = " ".join(parts[3:])
-            reminders.append((asyncio.get_event_loop().time() + seconds, update.effective_chat.id, message))
-            await update.message.reply_text(f"Напоминание установлено через {seconds} секунд: {message}")
-        except Exception:
-            await update.message.reply_text("Не понял формат. Пример: 'Напомни через 10 проверить почту'")
-    else:
-        await update.message.reply_text(f"Вы написали: {text}")
+    await update.message.reply_text(f"Вы написали: {text}")
 
-# Голосовые сообщения (пример)
+# Голосовые сообщения
 async def voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     voice = update.message.voice
     if voice:
         file = await context.bot.get_file(voice.file_id)
-        # Сохраняем временно
         path = f"voice_{voice.file_id}.ogg"
         await file.download_to_drive(path)
-        # Здесь можно добавить распознавание через сторонний STT сервис
-        # Простейший пример: просто отправляем обратно "получили голосовое"
-        await update.message.reply_text("Голосовое получено, обработка в разработке 😉")
+        await update.message.reply_text("Голосовое получено ✅")
 
-# Функция проверки отложенных сообщений
+# Цикл напоминаний
 async def reminder_loop(application):
     while True:
         now = asyncio.get_event_loop().time()
@@ -68,24 +53,19 @@ async def reminder_loop(application):
 
 # Создание приложения
 app = ApplicationBuilder().token(TOKEN).build()
-
-# Добавляем обработчики
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), text_message))
 app.add_handler(MessageHandler(filters.VOICE, voice_message))
 
 # Запуск webhook на Render
 async def main():
-    # Запускаем цикл напоминаний
     asyncio.create_task(reminder_loop(app))
-
-    # Запуск webhook
     await app.run_webhook(
         listen="0.0.0.0",
         port=PORT,
-        webhook_url=f"{APP_URL}/{TOKEN}",
-        webhook_path=f"/{TOKEN}",
+        webhook_url=f"{APP_URL}/{TOKEN}"  # только webhook_url
     )
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
